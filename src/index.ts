@@ -8,10 +8,21 @@ import { urlScannerAgent } from './agent';
 import { urlScanCache } from './utils/cache';
 import { scanUrl } from './utils/scanner';
 
-// Helper: extract first URL from a text string
+// Helper: extract first URL from a text string and ensure it has a protocol
 function extractUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s)]+/i);
-  return match ? match[0] : null;
+  // First try to match full URLs with protocol
+  let match = text.match(/https?:\/\/[^\s)]+/i);
+  if (match) return match[0];
+  
+  // If no protocol found, try to match domain-like patterns
+  // Matches: domain.com, sub.domain.com, domain.co.uk, etc.
+  match = text.match(/\b([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})\b/i);
+  if (match) {
+    // Add https:// protocol by default
+    return `https://${match[0]}`;
+  }
+  
+  return null;
 }
 
 const app = express();
@@ -57,10 +68,16 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate response using Mastra agent (with graceful fallback)
+    // Generate response using Mastra agent (with graceful fallback and timeout)
     let contentText: string | undefined;
     try {
-      const response = await urlScannerAgent.generate(lastMessage.content, { resourceId });
+      // Add 10-second timeout to prevent hanging
+      const response = await Promise.race([
+        urlScannerAgent.generate(lastMessage.content, { resourceId }),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Agent timeout')), 10000)
+        )
+      ]);
       contentText = response.text;
     } catch (genErr) {
       console.warn('Agent generation failed, falling back to direct scan:', genErr instanceof Error ? genErr.message : genErr);
@@ -114,10 +131,21 @@ app.post('/test', async (req: Request, res: Response) => {
       });
     }
 
-    const response = await urlScannerAgent.generate(message);
+    // Add timeout to prevent hanging
+    let messageText: string | undefined;
+    try {
+      const response = await Promise.race([
+        urlScannerAgent.generate(message),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Agent timeout')), 10000)
+        )
+      ]);
+      messageText = response.text;
+    } catch (genErr) {
+      console.warn('Agent generation timed out, using direct scan:', genErr instanceof Error ? genErr.message : genErr);
+    }
 
     // Extract text or fallback to direct scan
-    let messageText = response.text;
 
     if (!messageText) {
       const url = extractUrl(String(message));
@@ -135,8 +163,8 @@ app.post('/test', async (req: Request, res: Response) => {
     res.json({
       message: messageText,
       usage: {
-        inputTokens: response.usage?.inputTokens,
-        outputTokens: response.usage?.outputTokens,
+        inputTokens: 0,
+        outputTokens: 0,
       },
     });
   } catch (error) {
