@@ -77,33 +77,44 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate response using Mastra agent (with graceful fallback and timeout)
-    let contentText: string | undefined;
-    try {
-      // Add 10-second timeout to prevent hanging
-      const response = await Promise.race([
-        urlScannerAgent.generate(userMessage, { resourceId }),
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Agent timeout')), 10000)
-        )
-      ]);
-      contentText = response.text;
-    } catch (genErr) {
-      console.warn('Agent generation failed, falling back to direct scan:', genErr instanceof Error ? genErr.message : genErr);
-    }
-
-    // Fallback: if model didn't return text, try direct scan
-    if (!contentText) {
-      const url = extractUrl(String(userMessage));
-      if (url) {
-        const result = await scanUrl(url);
-        contentText = `Scan result for ${result.url}: ${result.threatLevel.toUpperCase()}\n` +
-          `- Safe: ${result.isSafe ? 'Yes' : 'No'}\n` +
-          `- Source: ${result.scanSource}\n` +
-          `- Details: ${result.details}`;
+    // For Telex, use direct scanning for speed and reliability
+    // Extract URL and scan directly (avoids LLM latency/timeout issues)
+    const url = extractUrl(String(userMessage));
+    let contentText: string;
+    
+    if (url) {
+      const result = await scanUrl(url);
+      
+      // Format response based on threat level
+      if (result.threatLevel === 'malicious') {
+        contentText = `🚨 DANGER: ${result.url}\n\n` +
+          `This URL is MALICIOUS and should NOT be visited!\n\n` +
+          `Threat Level: ${result.threatLevel.toUpperCase()}\n` +
+          `Source: ${result.scanSource}\n` +
+          `Details: ${result.details}\n\n` +
+          `⚠️ Do not click this link or enter any personal information.`;
+      } else if (result.threatLevel === 'suspicious') {
+        contentText = `⚠️ WARNING: ${result.url}\n\n` +
+          `This URL appears SUSPICIOUS. Proceed with extreme caution.\n\n` +
+          `Threat Level: ${result.threatLevel.toUpperCase()}\n` +
+          `Source: ${result.scanSource}\n` +
+          `Details: ${result.details}\n\n` +
+          `💡 Consider avoiding this link or verifying it through other means.`;
+      } else if (result.threatLevel === 'safe') {
+        contentText = `✅ SAFE: ${result.url}\n\n` +
+          `This URL appears safe to visit.\n\n` +
+          `Threat Level: ${result.threatLevel.toUpperCase()}\n` +
+          `Source: ${result.scanSource}\n` +
+          `Details: ${result.details}`;
       } else {
-        contentText = 'Please provide a URL to scan (e.g., https://example.com).';
+        contentText = `❓ UNKNOWN: ${result.url}\n\n` +
+          `Could not determine safety status.\n\n` +
+          `Source: ${result.scanSource}\n` +
+          `Details: ${result.details}\n\n` +
+          `⚠️ Proceed with caution when visiting unknown URLs.`;
       }
+    } else {
+      contentText = 'Please provide a valid URL to scan (e.g., https://example.com or google.com).';
     }
 
     // Format response according to A2A protocol
@@ -146,7 +157,7 @@ app.post('/test', async (req: Request, res: Response) => {
       const response = await Promise.race([
         urlScannerAgent.generate(message),
         new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Agent timeout')), 10000)
+          setTimeout(() => reject(new Error('Agent timeout')), 3000)
         )
       ]);
       messageText = response.text;
