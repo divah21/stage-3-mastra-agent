@@ -51,20 +51,29 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
   try {
     console.log('Received A2A request:', JSON.stringify(req.body, null, 2));
 
-    const { messages, resourceId } = req.body;
+    const { messages, message, text, content, resourceId } = req.body;
 
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({
-        error: 'Invalid request format. Expected messages array.',
-      });
+    // Handle multiple input formats for better compatibility
+    let userMessage: string | undefined;
+    
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      // Standard A2A format with messages array
+      const lastMessage = messages[messages.length - 1];
+      userMessage = lastMessage?.content || lastMessage?.text;
+    } else if (message) {
+      // Simple message field
+      userMessage = message;
+    } else if (text) {
+      // Text field
+      userMessage = text;
+    } else if (content) {
+      // Content field
+      userMessage = content;
     }
 
-    // Get the last user message
-    const lastMessage = messages[messages.length - 1];
-    
-    if (!lastMessage || !lastMessage.content) {
+    if (!userMessage) {
       return res.status(400).json({
-        error: 'No message content provided.',
+        error: 'No message content provided. Expected messages array or message/text/content field.',
       });
     }
 
@@ -73,7 +82,7 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
     try {
       // Add 10-second timeout to prevent hanging
       const response = await Promise.race([
-        urlScannerAgent.generate(lastMessage.content, { resourceId }),
+        urlScannerAgent.generate(userMessage, { resourceId }),
         new Promise<never>((_, reject) => 
           setTimeout(() => reject(new Error('Agent timeout')), 10000)
         )
@@ -85,7 +94,7 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
 
     // Fallback: if model didn't return text, try direct scan
     if (!contentText) {
-      const url = extractUrl(String(lastMessage.content));
+      const url = extractUrl(String(userMessage));
       if (url) {
         const result = await scanUrl(url);
         contentText = `Scan result for ${result.url}: ${result.threatLevel.toUpperCase()}\n` +

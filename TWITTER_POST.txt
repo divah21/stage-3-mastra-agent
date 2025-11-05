@@ -1,0 +1,74 @@
+🔒 Just shipped SafeLink - an AI-powered URL Safety Scanner for @hnginternship Stage 3!
+
+Built with @mastra and integrated with @teleximapp ✨
+
+🛡️ What it does:
+• Scans URLs for malware & phishing
+• Detects typosquatting (googl.com vs google.com)
+• Smart caching for faster results
+• Real-time threat analysis
+
+💻 Tech Stack:
+• Mastra AI Framework
+• OpenRouter + GPT-4o-mini
+• VirusTotal API
+• TypeScript + Express
+• Deployed on Railway
+
+🔗 Try it live: https://stage-3-mastra-agent-production.up.railway.app/health
+
+The agent responds instantly via Telex.im - just ask "Is [URL] safe?" and get a security verdict!
+
+#AI #CyberSecurity #Mastra #HNG12 #BuildInPublic #TypeScript
+
+---
+
+ALTERNATIVE SHORTER VERSION (fits in one tweet):
+
+🔒 Built SafeLink - an AI agent that scans URLs for threats! 
+
+✨ Detects malware, phishing & typosquatting
+🚀 Integrated with @teleximapp via A2A protocol
+⚡ Built with @mastra + OpenRouter
+
+Try it: https://stage-3-mastra-agent-production.up.railway.app
+
+@hnginternship Stage 3 ✅
+
+#AI #Security #HNG12
+
+---
+
+THREAD VERSION (3 tweets):
+
+Tweet 1:
+🔒 Just completed @hnginternship Stage 3 - Built SafeLink, an AI URL Security Scanner!
+
+Ask it "Is google.com safe?" and it scans for threats in real-time 🛡️
+
+Built with @mastra + integrated with @teleximapp
+
+🧵 Here's what I learned... 1/3
+
+Tweet 2:
+💡 Key Features:
+• AI-powered threat detection
+• Typosquatting detection (catches googl.com impersonating google.com!)
+• VirusTotal integration
+• Smart caching
+• A2A protocol for Telex.im
+
+Tech: TypeScript, Mastra, OpenRouter, Express
+
+2/3
+
+Tweet 3:
+🚀 Deployed on Railway with auto-scaling
+
+The hardest part? Handling LLM timeouts gracefully. Solution: robust fallback to direct scanning.
+
+Try it: https://stage-3-mastra-agent-production.up.railway.app
+
+Repo: [ADD YOUR GITHUB URL]
+
+3/3 #BuildInPublic
