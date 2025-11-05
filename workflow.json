@@ -16,7 +16,7 @@
       ],
       "type": "a2a/mastra-a2a-node",
       "typeVersion": 1,
-      "url": "YOUR_DEPLOYMENT_URL/a2a/agent/urlScanner"
+      "url": "https://stage-3-mastra-agent-production.up.railway.app/a2a/agent/urlScanner"
     }
   ],
   "pinData": {},
