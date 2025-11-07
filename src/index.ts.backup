@@ -57,162 +57,83 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// A2A endpoint for Telex.im integration (JSON-RPC 2.0 compliant)
+// A2A endpoint for Telex.im integration
 app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
     console.log('[A2A] Request received at:', new Date().toISOString());
     console.log('[A2A] Request body:', JSON.stringify(req.body, null, 2));
 
-    // Parse JSON-RPC 2.0 request
-    const { jsonrpc, id: requestId, method, params } = req.body;
+    const { messages, message, text, content, resourceId } = req.body;
 
-    // Validate JSON-RPC 2.0 format
-    if (jsonrpc !== '2.0' || !requestId) {
-      return res.status(400).json({
-        jsonrpc: '2.0',
-        id: requestId || null,
-        error: {
-          code: -32600,
-          message: 'Invalid Request: jsonrpc must be "2.0" and id is required'
-        }
-      });
-    }
-
-    // Extract message from params
-    const { message, contextId, taskId } = params || {};
+    // Handle multiple input formats for better compatibility
+    let userMessage: string | undefined;
     
-    let userMessage = '';
-    let messageId = '';
-    let userTaskId = taskId || `task-${Date.now()}`;
-    
-    // Handle A2A message format
-    if (message && message.parts) {
-      userMessage = message.parts.map((part: any) => {
-        if (part.kind === 'text') return part.text;
-        if (part.kind === 'data') return JSON.stringify(part.data);
-        return '';
-      }).join('\n');
-      messageId = message.messageId || `msg-${Date.now()}`;
-      userTaskId = message.taskId || userTaskId;
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      // Standard A2A format with messages array
+      const lastMessage = messages[messages.length - 1];
+      userMessage = lastMessage?.content || lastMessage?.text;
+    } else if (message) {
+      // Simple message field
+      userMessage = message;
+    } else if (text) {
+      // Text field
+      userMessage = text;
+    } else if (content) {
+      // Content field
+      userMessage = content;
     }
 
     if (!userMessage) {
       return res.status(400).json({
-        jsonrpc: '2.0',
-        id: requestId,
-        error: {
-          code: -32602,
-          message: 'No message content provided'
-        }
+        error: 'No message content provided. Expected messages array or message/text/content field.',
       });
     }
 
-    // Extract URL and scan directly for speed
-    const url = extractUrl(userMessage);
-    let responseText: string;
+    // For Telex, use direct scanning for speed and reliability
+    // Extract URL and scan directly (avoids LLM latency/timeout issues)
+    const url = extractUrl(String(userMessage));
+    let contentText: string;
     
     if (url) {
       const result = await scanUrl(url);
       
-      // Format concise response
+      // Simple, concise responses for Telex
       if (result.threatLevel === 'malicious') {
-        responseText = `🚨 DANGER: ${result.url} is MALICIOUS! Do not visit this site. ${result.details}`;
+        contentText = `🚨 DANGER: ${result.url} is MALICIOUS!\n\nDo NOT visit this website. ${result.details}`;
       } else if (result.threatLevel === 'suspicious') {
-        responseText = `⚠️ WARNING: ${result.url} appears SUSPICIOUS. ${result.details}`;
+        contentText = `⚠️ WARNING: ${result.url} appears SUSPICIOUS.\n\n${result.details}\n\nProceed with caution.`;
       } else if (result.threatLevel === 'safe') {
-        responseText = `✅ SAFE: ${result.url} appears safe to visit.`;
+        contentText = `✅ SAFE: ${result.url} appears safe to visit.\n\n${result.details}`;
       } else {
-        responseText = `❓ UNKNOWN: Could not determine safety of ${result.url}. Proceed with caution.`;
+        contentText = `❓ UNKNOWN: Could not verify ${result.url}. Proceed with caution.`;
       }
     } else {
-      responseText = 'Please provide a valid URL to scan (e.g., https://example.com or google.com).';
+      contentText = 'Please provide a valid URL to scan (e.g., https://example.com or google.com).';
     }
 
-    const responseMessageId = `msg-${Date.now()}`;
-    const responseTaskId = userTaskId;
-    const responseContextId = contextId || `ctx-${Date.now()}`;
-
-    // Build A2A-compliant response (JSON-RPC 2.0)
+    // Format response according to A2A protocol
     const a2aResponse = {
-      jsonrpc: '2.0',
-      id: requestId,
-      result: {
-        id: responseTaskId,
-        contextId: responseContextId,
-        status: {
-          state: 'completed',
-          timestamp: new Date().toISOString(),
-          message: {
-            messageId: responseMessageId,
-            role: 'agent',
-            parts: [
-              {
-                kind: 'text',
-                text: responseText
-              }
-            ],
-            kind: 'message'
-          }
+      messages: [
+        {
+          role: 'assistant',
+          content: contentText,
         },
-        artifacts: [
-          {
-            artifactId: `artifact-${Date.now()}`,
-            name: 'urlScannerResponse',
-            parts: [
-              {
-                kind: 'text',
-                text: responseText
-              }
-            ]
-          }
-        ],
-        history: [
-          {
-            kind: 'message',
-            role: 'user',
-            parts: [
-              {
-                kind: 'text',
-                text: userMessage
-              }
-            ],
-            messageId: messageId,
-            taskId: responseTaskId
-          },
-          {
-            kind: 'message',
-            role: 'agent',
-            parts: [
-              {
-                kind: 'text',
-                text: responseText
-              }
-            ],
-            messageId: responseMessageId,
-            taskId: responseTaskId
-          }
-        ],
-        kind: 'task'
-      }
+      ],
     };
 
     const duration = Date.now() - startTime;
     console.log('[A2A] Response ready in', duration, 'ms');
-    console.log('[A2A] Sending JSON-RPC 2.0 response');
+    console.log('[A2A] Sending response:', JSON.stringify(a2aResponse, null, 2));
 
+    // Send response immediately
     return res.status(200).json(a2aResponse);
   } catch (error) {
     console.error('[A2A] Error:', error);
     
     return res.status(500).json({
-      jsonrpc: '2.0',
-      id: req.body?.id || null,
-      error: {
-        code: -32603,
-        message: 'Internal error',
-        data: { details: error instanceof Error ? error.message : 'Unknown error' }
-      }
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
     });
   }
 });
