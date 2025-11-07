@@ -1,0 +1,9 @@
+# Ignore files that cause bundler issues
+node_modules/
+dist/
+.env
+.git/
+*.log
+coverage/
+.next/
+.mastra/

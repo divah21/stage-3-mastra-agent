@@ -49,7 +49,9 @@ app.get('/health', (req: Request, res: Response) => {
 // A2A endpoint for Telex.im integration
 app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
   try {
-    console.log('Received A2A request:', JSON.stringify(req.body, null, 2));
+    const startTime = Date.now();
+    console.log('[A2A] Request received at:', new Date().toISOString());
+    console.log('[A2A] Request body:', JSON.stringify(req.body, null, 2));
 
     const { messages, message, text, content, resourceId } = req.body;
 
@@ -127,13 +129,16 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
       ],
     };
 
-    console.log('Sending A2A response:', JSON.stringify(a2aResponse, null, 2));
+    const duration = Date.now() - startTime;
+    console.log('[A2A] Response ready in', duration, 'ms');
+    console.log('[A2A] Sending response:', JSON.stringify(a2aResponse, null, 2));
 
-    res.json(a2aResponse);
+    // Send response immediately
+    return res.status(200).json(a2aResponse);
   } catch (error) {
-    console.error('Error processing A2A request:', error);
+    console.error('[A2A] Error:', error);
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred',
     });
