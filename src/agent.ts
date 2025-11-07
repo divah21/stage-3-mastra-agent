@@ -47,8 +47,6 @@ Example responses:
 - "⚠️ WARNING: This URL is flagged as MALICIOUS. 15 security engines detected phishing attempts. Do NOT visit this site."
 - "This URL looks SUSPICIOUS. It uses an IP address instead of a domain name, which is often associated with phishing. Proceed with extreme caution."`,
 
-  // Using a model that supports function calling/tools
-  // Options: gpt-4o-mini, gpt-3.5-turbo, claude-3-haiku, deepseek/deepseek-chat
   model: openrouter('openai/gpt-4o-mini'),
   
   tools: {

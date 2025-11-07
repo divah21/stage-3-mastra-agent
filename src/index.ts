@@ -1,21 +1,17 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 
-// Load environment variables FIRST before importing agent
 dotenv.config();
 
 import { urlScannerAgent } from './agent';
 import { urlScanCache } from './utils/cache';
 import { scanUrl } from './utils/scanner';
 
-// Helper: extract first URL from a text string and ensure it has a protocol
 function extractUrl(text: string): string | null {
   // First try to match full URLs with protocol
   let match = text.match(/https?:\/\/[^\s)]+/i);
   if (match) return match[0];
   
-  // If no protocol found, try to match domain-like patterns
-  // Matches: domain.com, sub.domain.com, domain.co.uk, etc.
   match = text.match(/\b([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})\b/i);
   if (match) {
     // Add https:// protocol by default
@@ -31,7 +27,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
-// Add CORS headers for Telex compatibility
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -108,7 +103,6 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
       });
     }
 
-    // Extract URL and scan directly for speed
     const url = extractUrl(userMessage);
     let responseText: string;
     
@@ -198,8 +192,6 @@ app.post('/a2a/agent/urlScanner', async (req: Request, res: Response) => {
     };
 
     const duration = Date.now() - startTime;
-    console.log('[A2A] Response ready in', duration, 'ms');
-    console.log('[A2A] Sending JSON-RPC 2.0 response');
 
     return res.status(200).json(a2aResponse);
   } catch (error) {
@@ -275,12 +267,8 @@ app.post('/test', async (req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 URL Safety Scanner Agent running on port ${PORT}`);
-  console.log(`📍 A2A endpoint: http://localhost:${PORT}/a2a/agent/urlScanner`);
-  console.log(`🧪 Test endpoint: http://localhost:${PORT}/test`);
-  console.log(`❤️  Health check: http://localhost:${PORT}/health`);
-  
-  // Check for required environment variables
+ 
+
   if (!process.env.OPENROUTER_API_KEY) {
     console.warn('⚠️  WARNING: OPENROUTER_API_KEY not set. Agent will not work properly.');
   }
